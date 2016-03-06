@@ -5,110 +5,22 @@ dist: trusty
 
 compiler:
   - gcc
-  - clang
 
 os:
-  - linux
   - osx
 
 env:
   global:
     - BUILD_REVISION=official
   matrix:
-    - PLATFORM=iphone TARGET=release
-    - PLATFORM=iphone TARGET=release_debug
-    - PLATFORM=javascript
-    - PLATFORM=osx BITS=32 TOOLS=yes
-    - PLATFORM=osx BITS=32 TOOLS=no
-    - PLATFORM=osx BITS=64 TOOLS=no
-    - PLATFORM=server BITS=64 TOOLS=yes
-    - PLATFORM=x11 BITS=32 TOOLS=yes
-    - PLATFORM=x11 BITS=32 TOOLS=no
-    - PLATFORM=x11 BITS=64 TOOLS=yes
-    - PLATFORM=x11 BITS=64 TOOLS=no
     - PLATFORM=android TARGET=release
     - PLATFORM=android TARGET=release_debug
-    - PLATFORM=windows BITS=32 TOOLS=yes
-    - PLATFORM=windows BITS=32 TOOLS=no
-    - PLATFORM=windows BITS=64 TOOLS=yes
-    - PLATFORM=windows BITS=64 TOOLS=no
-
-matrix:
-  exclude:
-    - os: linux
-      env: PLATFORM=android TARGET=release
-    - os: linux
-      env: PLATFORM=android TARGET=release_debug
-    - os: linux
-      env: PLATFORM=iphone TARGET=release
-    - os: linux
-      env: PLATFORM=iphone TARGET=release_debug
-    - os: linux
-      env: PLATFORM=javascript
-    - os: linux
-      env: PLATFORM=osx BITS=32 TOOLS=yes
-    - os: linux
-      env: PLATFORM=osx BITS=32 TOOLS=no
-    - os: linux
-      env: PLATFORM=osx BITS=64 TOOLS=no
-    - os: osx
-      env: PLATFORM=server BITS=64 TOOLS=yes
-    - os: osx
-      env: PLATFORM=windows BITS=32 TOOLS=yes
-    - os: osx
-      env: PLATFORM=windows BITS=32 TOOLS=no
-    - os: osx
-      env: PLATFORM=windows BITS=64 TOOLS=yes
-    - os: osx
-      env: PLATFORM=windows BITS=64 TOOLS=no
-    - os: osx
-      env: PLATFORM=x11 BITS=32 TOOLS=yes
-    - os: osx
-      env: PLATFORM=x11 BITS=32 TOOLS=no
-    - os: osx
-      env: PLATFORM=x11 BITS=64 TOOLS=yes
-    - os: osx
-      env: PLATFORM=x11 BITS=64 TOOLS=no
-    - compiler: gcc
-      env: PLATFORM=iphone TARGET=release
-    - compiler: gcc
-      env: PLATFORM=iphone TARGET=release_debug
-    - compiler: gcc
-      env: PLATFORM=javascript
-    - compiler: gcc
-      env: PLATFORM=osx BITS=32 TOOLS=yes
-    - compiler: gcc
-      env: PLATFORM=osx BITS=32 TOOLS=no
-    - compiler: gcc
-      env: PLATFORM=osx BITS=64 TOOLS=no
-    - compiler: clang
-      env: PLATFORM=android TARGET=release
-    - compiler: clang
-      env: PLATFORM=android TARGET=release_debug
-    - compiler: clang
-      env: PLATFORM=server BITS=64 TOOLS=yes
-    - compiler: clang
-      env: PLATFORM=windows BITS=32 TOOLS=yes
-    - compiler: clang
-      env: PLATFORM=windows BITS=32 TOOLS=no
-    - compiler: clang
-      env: PLATFORM=windows BITS=64 TOOLS=yes
-    - compiler: clang
-      env: PLATFORM=windows BITS=64 TOOLS=no
-    - compiler: clang
-      env: PLATFORM=x11 BITS=32 TOOLS=yes
-    - compiler: clang
-      env: PLATFORM=x11 BITS=32 TOOLS=no
-    - compiler: clang
-      env: PLATFORM=x11 BITS=64 TOOLS=yes
-    - compiler: clang
-      env: PLATFORM=x11 BITS=64 TOOLS=no
 
 
 before_script:
   - if [ "$TRAVIS_OS_NAME" = "linux" ]; then sudo apt-get update -qq; sudo apt-get install -y scons pkg-config build-essential upx-ucl; fi;
   - if [ "$TRAVIS_OS_NAME" = "osx" ]; then brew update; brew install scons upx; fi;
-  - if [ "$TRAVIS_OS_NAME" = "osx" ] && [ "$PLATFORM" = "android" ]; then brew install android-sdk android-ndk; export ANDROID_HOME=/usr/local/opt/android-sdk; export ANDROID_NDK_ROOT=/usr/local/opt/android-ndk; fi;
+  - if [ "$TRAVIS_OS_NAME" = "osx" ] && [ "$PLATFORM" = "android" ]; then brew install android-sdk android-ndk gradle; export ANDROID_HOME=/usr/local/opt/android-sdk; export ANDROID_NDK_ROOT=/usr/local/opt/android-ndk; fi;
   - if [ "$PLATFORM" = "windows" ]; then sudo apt-get install -y mingw32 mingw-w64; fi;
   - if [ "$PLATFORM" = "x11" ]; then
       sudo apt-get install -y libx11-dev libxcursor-dev libasound2-dev libpulse-dev libfreetype6-dev libgl1-mesa-dev libglu1-mesa-dev libssl-dev libxinerama-dev libudev-dev;
@@ -139,8 +51,14 @@ script:
       fi;
     fi;
   - if [ "$PLATFORM" = "android" ]; then
+      if [ "$TARGET" = "release" ]; then target_tag="opt"; else target_tag="opt.debug"; fi;
       scons -j2 platform=$PLATFORM CXX=$CXX target=$TARGET;
       scons -j2 platform=$PLATFORM CXX=$CXX target=$TARGET android_arch=x86 > /dev/null;
+      mkdir -p platform/android/java/libs/{armeabi,x86};
+      mv bin/libgodot.android.$target_tag.armv7.neon.dylib platform/android/java/libs/armeabi/libgodot_android.so;
+      mv bin/libgodot.android.$target_tag.x86.dylib platform/android/java/libs/x86/libgodot_android.so;
+      cd platform/android/java; ./gradlew build;
+      cp build/outputs/apk/java-release-unsigned.apk ../../../bin/godot.android.$target_tag.apk;
     fi;
   - if [ "$PLATFORM" = "iphone" ]; then
       scons -j2 platform=$PLATFORM CXX=$CXX bits=32 target=$TARGET;
@@ -179,7 +97,7 @@ deploy:
     secure: tCFCHet6fgtf1+sgQEft4XTIfNH2JrqRx+YaatEfEEVNkHbY3SnRdtvcZeTeHc1LNpf6S0eU45RkBHeyN1Gna80Yiz8uep7rFuUTp5XtZsRfNecw/ebhPlyOEf3AhCVBJ3e3RxT2V1i/+8HyaWBisbXMZ1R+w07M3BxQrTpJflb7iSIXYTF//BxBtC1Atp7egDoU97OJfLSPEhPbjGhMoUuLTe7wmZqd7zK3DNTatL/pXefLN67N15dOra0LNgBHo1o6P4wcVBT2V+o9/TK5RAyUi5TqoudETgq2pBdAE558OuBbHh1dwDrs9b9ZbUC0mLautadiSbCkU0nLmYapaCKGr4+DpnZCxZYgzcYb5UPb6u6Rs3pY11JFtPYIXR2C1UJh4rpBIQa+F/eBKnw+QztnjfYWxJYq2T73CuFLgku89x99cVq7EiP0g/lZp64HxyENOcyL0FlWwjmq2vnr8BKNhDEVAXIUB1JsH8VshvndlgLhaRyRe+rkXnikLX8Nm6Z9V4pCjnRuCgiwZtYjxMTBhk30ZtXUg4uzCVmbvbUql8PPNrWDeq9yoUVe55kqU6DsxM1CEIou7Qcua2eeXcUkOGCgpXH4W0NXWBFo7Ze7FWHeKSHAcBeUrUpbiY75fcFdVjY/uUJaXQpem64Xm0O8GxK67CsBqAJahD1hxjc=
   file_glob: true
   file:
-    - bin/*godot*.$PLATFORM.opt.*
+    - bin/godot*.$PLATFORM.opt.*
   skip_cleanup: true
   on:
     repo: GodotBuilder/godot-builds
