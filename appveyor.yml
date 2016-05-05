@@ -22,8 +22,11 @@ environment:
 
 install:
   - SET "PATH=%PYTHON%;%PYTHON%\\Scripts;%PATH%"
+  # update pip to latest version, because 7.1.2 is problematic
+  # see https://github.com/GodotBuilder/godot-builds/pull/2
+  - python -m pip install --upgrade pip
   - pip --version
-  - pip install scons  # it will fail on AppVeyor without --egg flag
+  - pip install scons
   - if defined VS call "%VS%" %ARCH%  # if defined - so we can also use mingw
   - git submodule update --init --recursive # download submodules
 
